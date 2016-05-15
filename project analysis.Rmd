@@ -1,0 +1,122 @@
+---
+title: "final project analysis"
+author: "Eric Gutierrez"
+date: "Wednesday, May 04, 2016"
+output: html_document
+---
+
+load in dataset collected from tweets spanning 1 week. 
+```{r}
+tweets <- read.csv("F:/tweets.csv", header=TRUE, sep=",")
+
+tweets2 <- read.csv("C:/Users/eric/Desktop/Schoolz/Spring 2016/BIOS 6640/final project/tweetsparsed.csv", header=TRUE, sep=",")
+
+###199305 observations, 34 variables
+
+```
+
+
+Use tm (text mining) package
+```{r} 
+install.packages('tm')
+library(tm)
+
+# build a corpus
+tweets.corpus <- Corpus(VectorSource(tweets2))
+
+# make each letter lowercase
+tweets <- tm_map(tweets.corpus, tolower) 
+
+# remove punctuation 
+tweets.corpus <- tm_map(tweets.corpus, removePunctuation)
+ 
+# remove generic and custom stopwords
+my_stopwords <- c(stopwords('english'), 'zika')
+tweets.corpus <- tm_map(tweets.corpus, removeWords, my_stopwords)
+
+#build as plain text document
+tweets.corpus <- tm_map(tweets.corpus, PlainTextDocument)
+
+# build a term-document matrix
+tweets.dtm <- TermDocumentMatrix(tweets.corpus)
+
+# inspect most popular words
+findFreqTerms(tweets.dtm, lowfreq=6000)
+# which words are associated with zika?
+findAssocs(tweets.dtm, 'zika', 0.20) 
+## top words with lower frequency of 
+# [1] "0000"      "2016"      "apr"       "brasil"    "cases"    
+# [6] "casos"     "contra"    "death"     "del"       "dengue"   
+#[11] "emergency" "first"     "fri"       "health"    "httpsâ€"  
+#[16] "may"       "mon"       "mosquito"  "para"      "por"      
+#[21] "puerto"    "que"       "reported"  "rico"      "rio"      
+#[26] "sat"       "sun"       "the"       "thu"       "tue"      
+#[31] "vãrus"     "via"       "virus"     "wed"       "zika" 
+```
+
+
+figures
+=======
+```{r}
+library(plyr)
+library(ggmap)
+library(maps)
+library(ggplot2)
+
+#Creating variable for each day of tweets#
+tweets2$day <- substr(tweets2$creation.time, 0, 10)
+#deleting anything that is abnormal from creation_time column#
+tweets_clean<-tweets2[grepl(" ", tweets2$day),]
+#creating real date information for plottiong#
+#These will automatically be sorted#
+tweets_clean$day.info <- as.Date(tweets_clean$day,
+  format = "%a %b %d")
+#creating count data set to plot count frequency against day#
+counts <- count(tweets_clean, "day.info")
+#Plotting line graph of counts versus day#
+plot(counts$day.info, counts$freq, type='l', xlab = "Day of Tweet", ylab=" Number of Tweets")
+
+
+#First pulling out count data per user id#
+user_stats <- count(tweets2, "user.id")
+#This will give summaries for number of tweets per user id over the two week period#
+summary(user_stats)
+user_lang <- count(tweets2, "lang")
+
+user_lang$Pct <- user_lang$freq / sum(user_lang$freq)
+user_lang$Pct <-format(user_lang$Pct, scientific=FALSE)
+#converting to numeric to double check that percentages add to 1#
+user_lang$Pct <-as.numeric(user_lang$Pct)
+#order languages by most frequent
+user_lang <- user_lang[order(-user_lang$freq),]
+#plot of top 20 languages by day of tweet
+top_10lang <- user_lang[1:10,]
+plot(top_10lang$lang, top_10lang$freq, type='l', xlab = "Language of Tweet", ylab=" Percent of Tweets")
+
+#ggplot equivalent plot...this one looks better
+ggplot(top_10lang, aes(x=lang, y=Pct)) + 
+  geom_point(aes(size=freq))
+
+
+sum(user_lang$Pct)
+plot(counts$day.info, user_lang$freq, type='l', xlab = "Day of Tweet", ylab=" Language of Tweets")
+
+
+#gathering data on how many users reported a country#
+user_country <- count(tweets2, "country")
+user_country$Pct <-user_country$freq / sum(user_country$freq)
+user_country$Pct <- format(user_country$Pct, scientific=FALSE)
+
+user_country <- user_country[order(-user_country$freq),]
+
+#top 20 countries with tweets
+country_top20 <- user_country[1:20,]
+plot(country_top20$country, country_top20$Pct, type='l', xlab = "Country of Tweet", ylab=" Number of Tweets")
+##195957 0.983216425324 missing data on country, remove and replot
+country_top20 <- user_country[2:20,]
+plot(country_top20$country, country_top20$freq, type='l', xlab = "Country of Tweet", ylab=" Number of Tweets", las=3)
+
+##again ggplot came out better overall
+ggplot(country_top20, aes(x=country, y=freq))+geom_point()+theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
